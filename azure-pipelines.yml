@@ -1,0 +1,199 @@
+trigger:
+  branches:
+    include:
+    - master
+    - main
+    - develop
+  paths:
+    include:
+    - packages/backend/**
+    - packages/web/**
+    - docker/**
+    - k8s/**
+    - azure-pipelines.yml
+
+pr:
+  branches:
+    include:
+    - master
+    - main
+    - develop
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  REGISTRY: 'myregistry.azurecr.io'
+  BACKEND_IMAGE: '$(REGISTRY)/ecommerce-backend'
+  WEB_IMAGE: '$(REGISTRY)/ecommerce-web'
+  MOBILE_IMAGE: '$(REGISTRY)/ecommerce-mobile'
+  AKS_CLUSTER: 'myAKSCluster'
+  AKS_RESOURCE_GROUP: 'myResourceGroup'
+  DOCKER_BUILDKIT: 1
+
+stages:
+- stage: Build
+  displayName: 'Build & Test'
+  jobs:
+  - job: BuildAndTest
+    displayName: 'Build, Lint, and Test'
+    steps:
+    - task: UseNode@1
+      inputs:
+        version: '18.x'
+      displayName: 'Setup Node.js'
+
+    - task: Cache@2
+      inputs:
+        key: 'pnpm | $(Agent.OS) | pnpm-lock.yaml'
+        restoreKeys: |
+          pnpm | $(Agent.OS)
+        path: '$(Pipeline.Workspace)/.pnpm-store'
+      displayName: 'Cache pnpm dependencies'
+
+    - script: npm install -g pnpm@8
+      displayName: 'Install pnpm'
+
+    - script: pnpm install --frozen-lockfile
+      displayName: 'Install dependencies'
+
+    - script: pnpm lint
+      displayName: 'Lint code'
+
+    - script: pnpm type-check
+      displayName: 'TypeScript type checking'
+
+    - script: pnpm test
+      displayName: 'Run unit and integration tests'
+
+    - task: PublishCodeCoverageResults@1
+      inputs:
+        codeCoverageTool: 'cobertura'
+        summaryFileLocation: '$(System.DefaultWorkingDirectory)/coverage/cobertura-coverage.xml'
+      displayName: 'Publish code coverage'
+      condition: succeededOrFailed()
+
+- stage: Package
+  displayName: 'Docker Build & Push'
+  dependsOn: Build
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+  - job: DockerBuildPush
+    displayName: 'Build and Push Docker Images'
+    steps:
+    - task: Docker@2
+      inputs:
+        command: 'login'
+        containerRegistry: 'myAzureContainerRegistry'
+      displayName: 'Docker login to ACR'
+
+    - task: Docker@2
+      inputs:
+        command: 'build'
+        Dockerfile: '$(Build.SourcesDirectory)/docker/Dockerfile.backend'
+        tags: |
+          $(BACKEND_IMAGE):$(Build.BuildId)
+          $(BACKEND_IMAGE):latest
+        arguments: '--build-arg BUILDKIT_INLINE_CACHE=1'
+      displayName: 'Build backend image'
+
+    - task: Docker@2
+      inputs:
+        command: 'push'
+        repository: '$(BACKEND_IMAGE)'
+        tags: |
+          $(Build.BuildId)
+          latest
+      displayName: 'Push backend image'
+
+    - task: Docker@2
+      inputs:
+        command: 'build'
+        Dockerfile: '$(Build.SourcesDirectory)/docker/Dockerfile.web'
+        tags: |
+          $(WEB_IMAGE):$(Build.BuildId)
+          $(WEB_IMAGE):latest
+        arguments: '--build-arg BUILDKIT_INLINE_CACHE=1'
+      displayName: 'Build web image'
+
+    - task: Docker@2
+      inputs:
+        command: 'push'
+        repository: '$(WEB_IMAGE)'
+        tags: |
+          $(Build.BuildId)
+          latest
+      displayName: 'Push web image'
+
+    - task: Docker@2
+      inputs:
+        command: 'logout'
+        containerRegistry: 'myAzureContainerRegistry'
+      displayName: 'Docker logout'
+
+- stage: Deploy
+  displayName: 'Deploy to AKS'
+  dependsOn: Package
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
+  jobs:
+  - deployment: DeployToAKS
+    displayName: 'Deploy to AKS'
+    environment: 'ecommerce-prod'
+    strategy:
+      runOnce:
+        deploy:
+          steps:
+          - task: KubectlInstaller@0
+            inputs:
+              kubernetesVersion: 'latest'
+            displayName: 'Install kubectl'
+
+          - task: AzureCLI@2
+            inputs:
+              azureSubscription: 'myAzureSubscription'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                az aks get-credentials --resource-group $(AKS_RESOURCE_GROUP) --name $(AKS_CLUSTER) --admin
+            displayName: 'Get AKS credentials'
+
+          - task: KubernetesManifest@0
+            inputs:
+              action: 'deploy'
+              kubernetesServiceConnection: 'myAKSCluster'
+              namespace: 'ecommerce'
+              manifests: |
+                $(Pipeline.Workspace)/k8s/namespace.yaml
+                $(Pipeline.Workspace)/k8s/configmap.yaml
+                $(Pipeline.Workspace)/k8s/secrets.yaml
+                $(Pipeline.Workspace)/k8s/postgresql-*.yaml
+                $(Pipeline.Workspace)/k8s/backend-*.yaml
+                $(Pipeline.Workspace)/k8s/web-*.yaml
+                $(Pipeline.Workspace)/k8s/hpa.yaml
+                $(Pipeline.Workspace)/k8s/networkpolicy.yaml
+                $(Pipeline.Workspace)/k8s/ingress.yaml
+              strategy: 'canary'
+              trafficSplitMethod: 'pod'
+              percentage: 20
+            displayName: 'Deploy to AKS'
+
+          - task: Kubernetes@1
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'myAKSCluster'
+              command: 'rollout'
+              arguments: 'status deployment/backend -n ecommerce'
+            displayName: 'Wait for backend rollout'
+
+          - task: Kubernetes@1
+            inputs:
+              connectionType: 'Kubernetes Service Connection'
+              kubernetesServiceEndpoint: 'myAKSCluster'
+              command: 'rollout'
+              arguments: 'status deployment/web -n ecommerce'
+            displayName: 'Wait for web rollout'
+
+          - script: |
+              kubectl get all -n ecommerce
+              kubectl get ingress -n ecommerce
+            displayName: 'Verify deployment'

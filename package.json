@@ -1,0 +1,42 @@
+{
+  "name": "ecommerce-aks-app",
+  "version": "1.0.0",
+  "description": "Production-ready ecommerce application with Node.js, React, React Native, PostgreSQL, and Kubernetes",
+  "private": true,
+  "packageManager": "pnpm@8.0.0",
+  "workspaces": [
+    "packages/backend",
+    "packages/web",
+    "packages/mobile"
+  ],
+  "scripts": {
+    "install-all": "pnpm install",
+    "dev": "pnpm -r --parallel run dev",
+    "build": "pnpm -r run build",
+    "test": "pnpm -r run test",
+    "test:cov": "pnpm -r run test:cov",
+    "lint": "pnpm -r run lint",
+    "type-check": "pnpm -r run type-check",
+    "db:migrate": "cd packages/backend && pnpm db:migrate",
+    "db:rollback": "cd packages/backend && pnpm db:rollback",
+    "db:status": "cd packages/backend && pnpm db:status",
+    "db:seed": "cd packages/backend && pnpm db:seed",
+    "db:reset": "cd packages/backend && pnpm db:reset",
+    "docker:build": "docker-compose build",
+    "docker:up": "docker-compose up -d",
+    "docker:down": "docker-compose down",
+    "docker:logs": "docker-compose logs -f",
+    "k8s:apply": "kubectl apply -f k8s/",
+    "k8s:delete": "kubectl delete -f k8s/"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "prettier": "^3.0.0",
+    "eslint": "^8.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}
