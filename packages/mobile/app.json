@@ -1,0 +1,45 @@
+{
+  "expo": {
+    "name": "Ecommerce AKS",
+    "slug": "ecommerce-aks-mobile",
+    "scheme": "ecommerceaks",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "plugins": [
+      "expo-secure-store",
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.ecommerceaks.app",
+          "enableGooglePay": true
+        }
+      ]
+    ],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.ecommerceaks.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Camera access is used when scanning payment or delivery QR codes.",
+        "NSPhotoLibraryUsageDescription": "Photo library access is used when selecting profile images."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#111827"
+      },
+      "package": "com.ecommerceaks.mobile"
+    },
+    "extra": {
+      "apiUrl": "${EXPO_PUBLIC_API_URL}",
+      "stripePublishableKey": "${EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY}",
+      "environment": "${EXPO_PUBLIC_ENV}"
+    },
+    "experiments": {
+      "typedRoutes": false
+    }
+  }
+}

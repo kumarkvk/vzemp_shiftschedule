@@ -1,0 +1,46 @@
+# ============================================================================
+# MOBILE APP DOCKERFILE - CI/CD MINIMAL BUILD
+# ============================================================================
+# Note: This Dockerfile is for CI/CD testing only.
+# React Native with Expo is NOT deployed as a container to AKS.
+# This is used for:
+# - Running automated tests in CI/CD
+# - Building APK/IPA artifacts
+# - Running linting and type checking
+
+FROM node:20-alpine
+
+# Enable pnpm
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
+
+# Create non-root user
+RUN addgroup -g 1000 appuser && adduser -D -u 1000 -G appuser appuser
+
+WORKDIR /app
+
+# Copy workspace files
+COPY package.json pnpm-workspace.yaml ./
+COPY packages/mobile/package.json ./packages/mobile/package.json
+
+# Install dependencies
+RUN pnpm install --frozen-lockfile=false
+
+# Copy source code
+COPY packages/mobile ./packages/mobile
+COPY tsconfig.json ./tsconfig.json
+
+# Set ownership
+RUN chown -R appuser:appuser /app
+
+# Switch to non-root user
+USER appuser
+
+# Default command - can be overridden for different CI tasks
+CMD ["pnpm", "--filter", "@ecommerce/mobile", "test"]
+
+# Examples of how to use this image:
+# Run tests:         docker run --rm -v $(pwd):/app ecommerce-mobile:latest
+# Run linting:       docker run --rm ecommerce-mobile:latest pnpm --filter @ecommerce/mobile lint
+# Start dev server:  docker run --rm -p 19000:19000 ecommerce-mobile:latest pnpm --filter @ecommerce/mobile start --host 0.0.0.0

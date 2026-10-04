@@ -1,0 +1,13 @@
+import { getDatabase } from '../config/database';
+import { getStripeClient } from '../config/stripe';
+import type { AppServices } from '../types/services';
+import { DefaultAdminService } from './admin.service';
+import { DefaultAuthService } from './auth.service';
+import { DefaultCartService } from './cart.service';
+import { DefaultCategoryService } from './category.service';
+import { DefaultHealthService } from './health.service';
+import { DefaultOrderService } from './order.service';
+import { DefaultPaymentService } from './payment.service';
+import { DefaultProductService } from './product.service';
+import { DefaultUserService } from './user.service';
+export const createAppServices = (): AppServices => { const database = getDatabase(); const orderService = new DefaultOrderService(database); return { authService: new DefaultAuthService(database), productService: new DefaultProductService(database), categoryService: new DefaultCategoryService(database), cartService: new DefaultCartService(database), orderService, paymentService: new DefaultPaymentService(database, getStripeClient(), orderService), userService: new DefaultUserService(database), adminService: new DefaultAdminService(database), healthService: new DefaultHealthService(database) }; };

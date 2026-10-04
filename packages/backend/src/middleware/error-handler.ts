@@ -1,0 +1,5 @@
+import type { ErrorRequestHandler, RequestHandler } from 'express';
+import { AppError, DatabaseError } from '../errors/AppError';
+import { logger } from '../config/logger';
+export const notFoundHandler: RequestHandler = (req, _res, next) => { next(new AppError(`Route ${req.method} ${req.originalUrl} not found`, 404, 'ROUTE_NOT_FOUND')); };
+export const errorHandler: ErrorRequestHandler = (error, req, res, _next) => { if ((error as { code?: string }).code === '23505') { error = new DatabaseError('A record with those values already exists'); } const appError = error instanceof AppError ? error : new AppError('Something went wrong on the server'); logger.error('Request failed', { path: req.originalUrl, method: req.method, statusCode: appError.statusCode, code: appError.code, error: appError.message, details: appError.details, stack: error instanceof Error ? error.stack : undefined }); res.status(appError.statusCode).json({ success: false, error: { code: appError.code, message: appError.message, details: appError.details } }); };

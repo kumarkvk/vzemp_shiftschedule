@@ -1,0 +1,116 @@
+import type { CartSummary, Category, DashboardStats, Order, Payment, Product, User } from '../../src/types/entities';
+import type { PaginatedResult } from '../../src/types/api';
+
+export const fixtures = {
+  user: {
+    id: '11111111-1111-4111-8111-111111111111',
+    email: 'shopper@example.com',
+    firstName: 'Shop',
+    lastName: 'Per',
+    phone: '+15551234567',
+    role: 'user',
+    isActive: true,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+  } satisfies User,
+  adminUser: {
+    id: '22222222-2222-4222-8222-222222222222',
+    email: 'admin@example.com',
+    firstName: 'Admin',
+    lastName: 'User',
+    phone: '+15557654321',
+    role: 'admin',
+    isActive: true,
+    createdAt: new Date('2024-01-01T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-02T00:00:00.000Z'),
+  } satisfies User,
+  category: {
+    id: '33333333-3333-4333-8333-333333333333',
+    name: 'Accessories',
+    description: 'Fashion accessories',
+    imageUrl: 'https://example.com/category.png',
+    createdAt: new Date('2024-01-03T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-03T00:00:00.000Z'),
+  } satisfies Category,
+  product: {
+    id: '44444444-4444-4444-8444-444444444444',
+    name: 'Leather Bag',
+    description: 'Premium leather bag',
+    price: 199.99,
+    categoryId: '33333333-3333-4333-8333-333333333333',
+    inventory: 25,
+    imageUrl: 'https://example.com/bag.png',
+    sku: 'BAG-001',
+    isActive: true,
+    createdAt: new Date('2024-01-04T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-04T00:00:00.000Z'),
+    category: undefined,
+  } satisfies Product,
+  payment: {
+    id: '55555555-5555-4555-8555-555555555555',
+    orderId: '66666666-6666-4666-8666-666666666666',
+    stripePaymentIntentId: 'pi_test_123',
+    amount: 199.99,
+    status: 'succeeded',
+    failureReason: null,
+    createdAt: new Date('2024-01-05T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-05T00:00:00.000Z'),
+  } satisfies Payment,
+  order: {
+    id: '66666666-6666-4666-8666-666666666666',
+    userId: '11111111-1111-4111-8111-111111111111',
+    status: 'pending',
+    totalAmount: 199.99,
+    shippingAddress: {
+      street: '1 Main St',
+      city: 'Seattle',
+      state: 'WA',
+      zip: '98101',
+      country: 'US',
+    },
+    notes: 'Leave at door',
+    createdAt: new Date('2024-01-06T00:00:00.000Z'),
+    updatedAt: new Date('2024-01-06T00:00:00.000Z'),
+    items: [
+      {
+        id: '77777777-7777-4777-8777-777777777777',
+        orderId: '66666666-6666-4666-8666-666666666666',
+        productId: '44444444-4444-4444-8444-444444444444',
+        quantity: 1,
+        price: 199.99,
+        createdAt: new Date('2024-01-06T00:00:00.000Z'),
+      },
+    ],
+    payment: null,
+  } satisfies Order,
+  cart: {
+    items: [
+      {
+        id: '88888888-8888-4888-8888-888888888888',
+        userId: '11111111-1111-4111-8111-111111111111',
+        productId: '44444444-4444-4444-8444-444444444444',
+        quantity: 2,
+        createdAt: new Date('2024-01-07T00:00:00.000Z'),
+        updatedAt: new Date('2024-01-07T00:00:00.000Z'),
+      },
+    ],
+    total: 399.98,
+  } satisfies CartSummary,
+  dashboard: {
+    totalUsers: 10,
+    totalOrders: 6,
+    totalRevenue: 1400.55,
+    pendingOrders: 2,
+    activeProducts: 8,
+  } satisfies DashboardStats,
+};
+
+export const paginated = <T>(items: T[]): PaginatedResult<T> => ({
+  items,
+  pagination: {
+    page: 1,
+    limit: Math.max(items.length, 1),
+    total: items.length,
+    totalPages: 1,
+  },
+});

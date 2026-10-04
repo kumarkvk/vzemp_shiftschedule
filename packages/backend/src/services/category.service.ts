@@ -1,0 +1,14 @@
+import { ConflictError, NotFoundError } from '../errors/AppError';
+import type { CategoryCreateInput, CategoryUpdateInput } from '../types/api';
+import type { Database } from '../types/database';
+import type { CategoryService } from '../types/services';
+import { mapCategory } from '../utils/mappers';
+interface CategoryRow { id: string; name: string; description: string | null; image_url: string | null; created_at: Date; updated_at: Date; }
+export class DefaultCategoryService implements CategoryService {
+  public constructor(private readonly database: Database) {}
+  public async listCategories() { const result = await this.database.query<CategoryRow>('SELECT id, name, description, image_url, created_at, updated_at FROM categories WHERE deleted_at IS NULL ORDER BY name ASC'); return result.rows.map(mapCategory); }
+  public async getCategoryById(id: string) { const result = await this.database.query<CategoryRow>('SELECT id, name, description, image_url, created_at, updated_at FROM categories WHERE id = $1 AND deleted_at IS NULL', [id]); if (result.rowCount === 0) { throw new NotFoundError('Category not found'); } return mapCategory(result.rows[0]); }
+  public async createCategory(input: CategoryCreateInput) { try { const result = await this.database.query<CategoryRow>('INSERT INTO categories (name, description, image_url) VALUES ($1, $2, $3) RETURNING id, name, description, image_url, created_at, updated_at', [input.name, input.description ?? null, input.imageUrl ?? null]); return mapCategory(result.rows[0]); } catch (error) { if ((error as { code?: string }).code === '23505') { throw new ConflictError('Category name already exists'); } throw error; } }
+  public async updateCategory(id: string, input: CategoryUpdateInput) { await this.getCategoryById(id); const updates: string[] = []; const values: unknown[] = []; const fields: Array<[keyof CategoryUpdateInput, string]> = [['name', 'name'], ['description', 'description'], ['imageUrl', 'image_url']]; for (const [field, column] of fields) { const value = input[field]; if (value !== undefined) { values.push(value); updates.push(`${column} = $${values.length}`); } } if (updates.length === 0) { return this.getCategoryById(id); } values.push(id); const result = await this.database.query<CategoryRow>(`UPDATE categories SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${values.length} AND deleted_at IS NULL RETURNING id, name, description, image_url, created_at, updated_at`, values); return mapCategory(result.rows[0]); }
+  public async deleteCategory(id: string) { const result = await this.database.query<{ id: string }>('UPDATE categories SET deleted_at = NOW(), updated_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id', [id]); if (result.rowCount === 0) { throw new NotFoundError('Category not found'); } }
+}

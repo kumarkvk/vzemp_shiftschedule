@@ -1,0 +1,7 @@
+import { Router } from 'express';
+import { body } from 'express-validator';
+import { validateRequest } from '../middleware/validate-request';
+import type { AuthService } from '../types/services';
+import { asyncHandler } from '../utils/async-handler';
+import { sendSuccess } from '../utils/api-response';
+export const createAuthRouter = (authService: AuthService): Router => { const router = Router(); router.post('/register', validateRequest([body('email').isEmail().normalizeEmail(), body('password').isLength({ min: 8 }), body('firstName').isString().trim().isLength({ min: 1, max: 100 }), body('lastName').isString().trim().isLength({ min: 1, max: 100 }), body('phone').optional().isString().trim().isLength({ min: 6, max: 20 })]), asyncHandler(async (req, res) => { sendSuccess(res, { statusCode: 201, message: 'User registered successfully', data: await authService.register(req.body) }); })); router.post('/login', validateRequest([body('email').isEmail().normalizeEmail(), body('password').isString().isLength({ min: 8 })]), asyncHandler(async (req, res) => { sendSuccess(res, { message: 'Login successful', data: await authService.login(req.body) }); })); router.post('/refresh', validateRequest([body('refreshToken').isString().notEmpty()]), asyncHandler(async (req, res) => { sendSuccess(res, { message: 'Token refreshed successfully', data: await authService.refreshToken(req.body.refreshToken) }); })); return router; };

@@ -1,0 +1,10 @@
+import type { RequestHandler } from 'express';
+import { Router } from 'express';
+import { body, param } from 'express-validator';
+import { authenticate } from '../middleware/auth';
+import { validateRequest } from '../middleware/validate-request';
+import type { PaymentService } from '../types/services';
+import { asyncHandler } from '../utils/async-handler';
+import { sendSuccess } from '../utils/api-response';
+export const createPaymentsRouter = (paymentService: PaymentService): Router => { const router = Router(); router.use(authenticate); router.post('/:orderId/pay', validateRequest([param('orderId').isUUID(), body('paymentMethodId').optional().isString().trim()]), asyncHandler(async (req, res) => { sendSuccess(res, { statusCode: 201, message: 'Payment intent created successfully', data: await paymentService.createPaymentIntent(req.user!.id, String(req.params.orderId), req.body) }); })); router.post('/:orderId/pay/confirm', validateRequest([param('orderId').isUUID(), body('paymentIntentId').isString().trim().notEmpty()]), asyncHandler(async (req, res) => { sendSuccess(res, { message: 'Payment confirmed successfully', data: await paymentService.confirmPayment(req.user!.id, String(req.params.orderId), req.body) }); })); return router; };
+export const createStripeWebhookHandler = (paymentService: PaymentService): RequestHandler => asyncHandler(async (req, res) => { const signature = req.headers['stripe-signature']; const normalizedSignature = Array.isArray(signature) ? signature[0] : signature; sendSuccess(res, { data: await paymentService.handleWebhook(normalizedSignature, req.body as Buffer) }); });
